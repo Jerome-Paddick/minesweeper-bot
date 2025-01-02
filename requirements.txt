@@ -3,4 +3,5 @@ tensorflow
 numpy
 mouse
 keyboard
+pygetwindow
 matplotlib
