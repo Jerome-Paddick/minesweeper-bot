@@ -2,13 +2,12 @@ import time
 
 from collections import defaultdict
 from dataclasses import dataclass
-from pprint import pprint
 from PIL import Image
 import numpy as np
-import tensorflow as tf
 from mouse import click, right_click, move
 
 from display import display_grid
+from model import get_model
 from stop import handle_stop
 from utils import print_grid, delete_png_files, red_square, PauseManager
 from window import get_window_by_title, capture_window, focus_window
@@ -58,7 +57,7 @@ class Board:
         self.game_window_screenshot = screenshot.crop(base_crop)
         self.game_window_screenshot.save('_base' + '.png')
 
-        self.load_model()
+        self.model, self.class_names = get_model()
 
         top = self.find_game_board(screenshot)
         self.level = self.level_map[top]
@@ -118,12 +117,6 @@ class Board:
         x_cells, y_cells = self.size_map[self.level]
         x_edge_length, y_edge_length = (x_cells*self.cell_size), (y_cells*self.cell_size)
         return x, y, x + x_edge_length + asdf, y + y_edge_length + asdf
-
-    def load_model(self):
-        # Load model and class names
-        self.model = tf.keras.models.load_model('simple_classifier.h5')
-        with open('class_names.txt', 'r') as f:
-            self.class_names = f.read().splitlines()
 
     def get_cell_grid(self):
         """
@@ -289,6 +282,7 @@ def find_moves(grid):
     potential_mines_frontier_cells = defaultdict(set)
     potential_moves_frontier_cells = defaultdict(set)
 
+    # find mines
     for unsolved, adj in frontier.items():
         for cell in adj:
             x, y = cell
@@ -311,9 +305,32 @@ def find_moves(grid):
 
 
             unsolved_count = len(unsolved)
-            # print("xy", x, y, "-", number)
-            # print("unsolved_count", unsolved_count)
-            # print("flag_count", flag_count)
+            if unsolved_count and unsolved_count + flag_count == number:
+                for u in unsolved:
+                    ux, uy = u
+                    grid[ux][uy] = "X"
+                    potential_mines_frontier_cells[u].add(cell)
+
+    for unsolved, adj in frontier.items():
+        for cell in adj:
+            x, y = cell
+            number = grid[x][y]
+            unsolved = []
+            flag_count = 0
+            special = False
+
+            for dx, dy in cardinal:
+                new_x, new_y = x + dx, y + dy
+                if 0 <= new_x < rows and 0 <= new_y < cols:
+                    if grid[new_x][new_y] in unsolved_special:
+                        unsolved.append((new_x, new_y))
+                        special = True
+                    if grid[new_x][new_y] is None:
+                        unsolved.append((new_x, new_y))
+                    elif grid[new_x][new_y] == "X":
+                        flag_count += 1
+
+            unsolved_count = len(unsolved)
 
             # find real cells
             if flag_count == number and unsolved_count > 0:
@@ -326,11 +343,7 @@ def find_moves(grid):
                         potential_moves_frontier_cells[u].add(cell)
                     # moves.add(cell)
 
-            # find mines
-            if unsolved_count and unsolved_count + flag_count == number:
-                # moves_mines.add((x, y))
-                for u in unsolved:
-                    potential_mines_frontier_cells[u].add(cell)
+
 
 
     print("potential -->")
@@ -396,9 +409,9 @@ if __name__ == '__main__':
                 screenshot = capture_window(window)
         else:
             with PauseManager(window):
+                board.click_cells(moves.moves_mines, right_click())
                 board.click_cells(moves.special_moves)
                 board.click_cells(moves.moves)
-                board.click_cells(moves.moves_mines, right_click())
                 screenshot = capture_window(window)
 
 
