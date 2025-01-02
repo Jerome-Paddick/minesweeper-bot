@@ -384,16 +384,18 @@ if __name__ == '__main__':
         moves = find_moves(grid)
         print_grid(grid)
 
-        with PauseManager():
-            board.click_cells(moves.special_moves)
-            board.click_cells(moves.moves)
-            board.click_cells(moves.moves_mines, right_click())
-            screenshot = capture_window(window)
-
-
-        if not(moves.special_moves or moves.moves or moves.moves_mines):
+        if not (moves.special_moves or moves.moves or moves.moves_mines):
             print("\n" + "*" * 50 + "\n\tMOVE NOT FOUND\n" + "*" * 50 + "\n")
             input("Press Enter to run when moves available...")
+            with PauseManager():
+                screenshot = capture_window(window)
+        else:
+            with PauseManager():
+                board.click_cells(moves.special_moves)
+                board.click_cells(moves.moves)
+                board.click_cells(moves.moves_mines, right_click())
+                screenshot = capture_window(window)
+
 
         level = board.level
         known = board.known
