@@ -48,7 +48,10 @@ class Board:
     def __init__(self, screenshot, known=None, last_level=None, debug=False):
         self.debug = debug
         self.last_level = last_level
-        self.known = known
+        if known is None:
+            self.known = dict()
+        else:
+            self.known = known
 
         base_crop = (547, 258, 2014, 1239)
 
@@ -63,7 +66,8 @@ class Board:
         self.edge = self.edge_map[self.level]
         self.pad = self.pad_map[self.level]
 
-        if not known or last_level != level:
+        if last_level != self.level:
+            print("LEVEL CHANGE")
             self.known = {}
 
         self.board_capture = self.game_window_screenshot.crop(self.dimensions())
@@ -365,7 +369,7 @@ if __name__ == '__main__':
     window = get_window_by_title(window_title)
     focus_window(window)
 
-    with PauseManager():
+    with PauseManager(window):
         screenshot = capture_window(window)
 
     level = None
@@ -387,10 +391,11 @@ if __name__ == '__main__':
         if not (moves.special_moves or moves.moves or moves.moves_mines):
             print("\n" + "*" * 50 + "\n\tMOVE NOT FOUND\n" + "*" * 50 + "\n")
             input("Press Enter to run when moves available...")
-            with PauseManager():
+            with PauseManager(window):
+                time.sleep(0.1)
                 screenshot = capture_window(window)
         else:
-            with PauseManager():
+            with PauseManager(window):
                 board.click_cells(moves.special_moves)
                 board.click_cells(moves.moves)
                 board.click_cells(moves.moves_mines, right_click())
@@ -399,7 +404,3 @@ if __name__ == '__main__':
 
         level = board.level
         known = board.known
-
-        end = time.time()
-        if end - start < 0.3:
-            time.sleep(0.3 - (end - start))

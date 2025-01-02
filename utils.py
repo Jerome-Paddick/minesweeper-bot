@@ -1,6 +1,9 @@
 import os
+import time
 
 import keyboard
+
+from window import focus_window
 
 
 def red_square(image, xy):
@@ -66,7 +69,16 @@ def delete_png_files(directory="img"):
 
 
 class PauseManager:
+    def __init__(self, window):
+        self.window = window
+        self.start = None
+
     def __enter__(self, *args, **kwargs):
+        self.start = time.time()
+        focus_window(self.window)
         keyboard.press("F9")
     def __exit__(self, *args, **kwargs):
+        end = time.time()
+        if end - self.start < 0.2:
+            time.sleep(0.2 - (end - self.start))
         keyboard.press("F9")
