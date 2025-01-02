@@ -96,8 +96,8 @@ class Board:
         else:
             raise ValueError("left laser did not connect")
 
-        print("top:", top)
-        print("left:", left)
+        # print("top:", top)
+        # print("left:", left)
 
         visualise_lasers = self.game_window_screenshot.crop((0, 0, 800, 500))
         red_square(visualise_lasers, (top_laser_x, top))
@@ -124,7 +124,9 @@ class Board:
         Returns a 2D list of cell states
         """
         if self.known:
-            print("known", len(self.known))
+            num_known = len(self.known)
+            l, w = self.size_map[self.level]
+            print(f"known: {round(100*(num_known/(l*w)))}%  ({num_known}/{l*w})")
 
         state_map = {
             "0": 0, "1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6,
@@ -343,20 +345,17 @@ def find_moves(grid):
                         potential_moves_frontier_cells[u].add(cell)
                     # moves.add(cell)
 
-
-
-
-    print("potential -->")
-    print("spec", potential_special_frontier_cells)
-    print("moves", potential_moves_frontier_cells)
-    print("mines", potential_mines_frontier_cells)
-    print("<---")
-    print("special_moves")
-    print(special_moves)
-    print("moves")
-    print(moves)
-    print("moves_mines")
-    print(moves_mines)
+    # print("potential -->")
+    # print("spec", potential_special_frontier_cells)
+    # print("moves", potential_moves_frontier_cells)
+    # print("mines", potential_mines_frontier_cells)
+    # print("<---")
+    # print("special_moves")
+    # print(special_moves)
+    # print("moves")
+    # print(moves)
+    # print("moves_mines")
+    # print(moves_mines)
 
     for k, v in potential_special_frontier_cells.items():
         special_moves.add(v.pop())
@@ -396,6 +395,7 @@ if __name__ == '__main__':
             known=known,
             last_level=level,
         )
+        print("LEVEL: ", board.level)
         grid = board.get_cell_grid()
 
         moves = find_moves(grid)
@@ -409,7 +409,7 @@ if __name__ == '__main__':
                 screenshot = capture_window(window)
         else:
             with PauseManager(window):
-                board.click_cells(moves.moves_mines, right_click())
+                board.click_cells(moves.moves_mines, left_click=False)
                 board.click_cells(moves.special_moves)
                 board.click_cells(moves.moves)
                 screenshot = capture_window(window)
