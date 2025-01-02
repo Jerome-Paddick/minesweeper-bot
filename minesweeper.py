@@ -45,8 +45,10 @@ class Board:
         5: (235, 0)
     }
 
-    def __init__(self, screenshot, debug=False):
+    def __init__(self, screenshot, known=None, last_level=None, debug=False):
         self.debug = debug
+        self.last_level = last_level
+        self.known = known
 
         base_crop = (547, 258, 2014, 1239)
 
@@ -60,6 +62,9 @@ class Board:
         self.size = self.size_map[self.level]
         self.edge = self.edge_map[self.level]
         self.pad = self.pad_map[self.level]
+
+        if not known or last_level != level:
+            self.known = {}
 
         self.board_capture = self.game_window_screenshot.crop(self.dimensions())
         self.board_capture.save('_capture.png')
@@ -121,10 +126,15 @@ class Board:
         Split the board capture into individual cells and analyze using a trained classifier
         Returns a 2D list of cell states
         """
+        if self.known:
+            print("known", len(self.known))
+
         state_map = {
             "0": 0, "1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6,
             "bg_green": None, "C": "C", "M": "M", "X": "X",
         }
+
+        add_to_known = [0, 1, 2, 3, 4, 5, 6, "X"]
 
         board_array = np.array(self.board_capture)
         cols, rows = self.size
@@ -133,6 +143,13 @@ class Board:
         for row in range(rows):
             cell_row = []
             for col in range(cols):
+                if (
+                        self.last_level == self.level and
+                        (state:= self.known.get((row, col), None))
+                ):
+                    cell_row.append(state)
+                    continue
+
                 left = col * self.cell_size
                 top = row * self.cell_size
                 right = left + self.cell_size
@@ -156,9 +173,13 @@ class Board:
                 state = state_map[predicted_class]
                 cell_row.append(state)
 
+                if state in add_to_known:
+                    self.known[(row, col)] = state
+
             grid.append(cell_row)
 
-        pprint(grid)
+        self.last_level = self.level
+        # pprint(grid)
         return grid
 
 
@@ -260,10 +281,6 @@ def find_moves(grid):
     if DEBUG:
         display_grid(grid, frontier, "red")
 
-    special_scoring = defaultdict(int)
-    normal_scoring = defaultdict(int)
-    mines_scoring = defaultdict(int)
-
     potential_special_frontier_cells = defaultdict(set)
     potential_mines_frontier_cells = defaultdict(set)
     potential_moves_frontier_cells = defaultdict(set)
@@ -288,12 +305,11 @@ def find_moves(grid):
                     elif grid[new_x][new_y] == "X":
                         flag_count += 1
 
-            print(unsolved)
 
             unsolved_count = len(unsolved)
-            print("xy", x, y, "-", number)
-            print("unsolved_count", unsolved_count)
-            print("flag_count", flag_count)
+            # print("xy", x, y, "-", number)
+            # print("unsolved_count", unsolved_count)
+            # print("flag_count", flag_count)
 
             # find real cells
             if flag_count == number and unsolved_count > 0:
@@ -308,7 +324,6 @@ def find_moves(grid):
 
             # find mines
             if unsolved_count and unsolved_count + flag_count == number:
-                mines_scoring[cell] = number - flag_count
                 # moves_mines.add((x, y))
                 for u in unsolved:
                     potential_mines_frontier_cells[u].add(cell)
@@ -353,19 +368,20 @@ if __name__ == '__main__':
     with PauseManager():
         screenshot = capture_window(window)
 
-    board = Board(screenshot, DEBUG)
-    grid = board.get_cell_grid()
+    level = None
+    known = None
 
     while True:
+        start = time.time()
 
-        board = Board(screenshot)
+        board = Board(
+            screenshot=screenshot,
+            known=known,
+            last_level=level,
+        )
         grid = board.get_cell_grid()
 
-        print("LEVEL:", board.level)
-
         moves = find_moves(grid)
-
-        # pprint(grid)
         print_grid(grid)
 
         with PauseManager():
@@ -377,6 +393,11 @@ if __name__ == '__main__':
 
         if not(moves.special_moves or moves.moves or moves.moves_mines):
             print("\n" + "*" * 50 + "\n\tMOVE NOT FOUND\n" + "*" * 50 + "\n")
-            break
+            input("Press Enter to run when moves available...")
 
-        time.sleep(0.2)
+        level = board.level
+        known = board.known
+
+        end = time.time()
+        if end - start < 0.3:
+            time.sleep(0.3 - (end - start))
